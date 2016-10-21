@@ -7,8 +7,9 @@ class MNIST:
     TYPE_TRAINING = 0
     TYPE_TEST = 1
 
-    def __init__(self, data_type):
+    def __init__(self, data_type, num_channels=1):
         self.data_type = data_type
+        self.num_channels = num_channels
 
         label_file_path, image_file_path = self._get_source_file_paths()
         self.labels = MNIST._read_labels(label_file_path)
@@ -18,7 +19,7 @@ class MNIST:
         labels = self.labels
         images = self.images
 
-        images = images.reshape((-1, images.shape[1] * images.shape[2])).astype(np.float32)
+        images = images.reshape((-1, images.shape[1], images.shape[2], self.num_channels)).astype(np.float32)
         labels = (np.arange(10) == labels[:, None]).astype(np.float32)
         return images, labels
 
@@ -66,7 +67,7 @@ class MNIST:
 
     def _get_source_file_paths(self):
         label_file_name, image_file_name = self._get_source_file_names()
-        return "resource/" + label_file_name, "resource/" + image_file_name
+        return "resource/MNIST/" + label_file_name, "resource/MNIST/" + image_file_name
 
     def show_as_image(self, nx=10, ny=10, gap=4):
         images = self.images
