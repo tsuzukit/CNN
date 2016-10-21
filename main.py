@@ -7,6 +7,6 @@ if __name__ == '__main__':
     mnist_training = mnist.MNIST(mnist.MNIST.TYPE_TRAINING)
     images, labels = mnist_training.get_reformatted_dataset()
 
-    nnModel = model.Model(0.5)
+    nnModel = model.Model()
     nnModel.fit(images, labels)
 
