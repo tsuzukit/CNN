@@ -16,15 +16,10 @@
 $ git clone git@github.com:tsuzukit/CNN.git
 ```
 
-### train model
+### train and model
 
 ```
 $ cd CNN
 $ python main.py
 ```
 
-### predict
-
-```
-T.B.D
-```
