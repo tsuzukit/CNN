@@ -60,12 +60,13 @@ class CNN:
                 shape = hidden.get_shape().as_list()
                 reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
                 hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
+                dropout = tf.nn.dropout(hidden, self.dropout)
 
-                logits1 = tf.matmul(hidden, s1_weights) + s1_biases
-                logits2 = tf.matmul(hidden, s2_weights) + s2_biases
-                logits3 = tf.matmul(hidden, s3_weights) + s3_biases
-                logits4 = tf.matmul(hidden, s4_weights) + s4_biases
-                logits5 = tf.matmul(hidden, s5_weights) + s5_biases
+                logits1 = tf.matmul(dropout, s1_weights) + s1_biases
+                logits2 = tf.matmul(dropout, s2_weights) + s2_biases
+                logits3 = tf.matmul(dropout, s3_weights) + s3_biases
+                logits4 = tf.matmul(dropout, s4_weights) + s4_biases
+                logits5 = tf.matmul(dropout, s5_weights) + s5_biases
                 return [logits1, logits2, logits3, logits4, logits5]
 
             # Training computation
@@ -106,7 +107,7 @@ class CNN:
             stats = []
 
             # training
-            for step in range(30000):
+            for step in range(60000):
 
                 batch_data, batch_labels = self._get_batch(step, training_data, training_label)
                 feed_dict = {
@@ -137,15 +138,81 @@ class CNN:
             # save model
             saver.save(session, "result/SVHN_MODEL.ckpt")
 
+    def predict(self, test_data, test_label):
+        test_data, test_label = self._get_batch(0, test_data, test_label)
+        num_labels = 11
+
+        graph = tf.Graph()
+        with graph.as_default():
+            # data
+            tf_test_data_set = tf.constant(test_data)
+
+            # variables
+            layer1_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.num_channels, self.depth], stddev=0.1))
+            layer1_biases = tf.Variable(tf.zeros([self.depth]))
+            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.depth, self.depth * 2], stddev=0.1))
+            layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 2]))
+            layer3_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 4 * CNN.IMAGE_SIZE // 4 * self.depth * 2, self.num_hidden], stddev=0.1))
+            layer3_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden]))
+
+            s1_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
+            s1_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
+            s2_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
+            s2_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
+            s3_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
+            s3_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
+            s4_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
+            s4_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
+            s5_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
+            s5_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
+
+            # Model
+            def model(data):
+                conv = tf.nn.conv2d(data, layer1_weights, [1, 1, 1, 1], padding='SAME')
+                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                hidden = tf.nn.relu(pool + layer1_biases)
+                conv = tf.nn.conv2d(hidden, layer2_weights, [1, 1, 1, 1], padding='SAME')
+                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                hidden = tf.nn.relu(pool + layer2_biases)
+                shape = hidden.get_shape().as_list()
+                reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
+                hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
+
+                logits1 = tf.matmul(hidden, s1_weights) + s1_biases
+                logits2 = tf.matmul(hidden, s2_weights) + s2_biases
+                logits3 = tf.matmul(hidden, s3_weights) + s3_biases
+                logits4 = tf.matmul(hidden, s4_weights) + s4_biases
+                logits5 = tf.matmul(hidden, s5_weights) + s5_biases
+                return [logits1, logits2, logits3, logits4, logits5]
+
+            # Training computation
+            logits = model(tf_test_data_set)
+
+            # result
+            prediction = tf.pack([tf.nn.softmax(logits[0]),
+                                  tf.nn.softmax(logits[1]),
+                                  tf.nn.softmax(logits[2]),
+                                  tf.nn.softmax(logits[3]),
+                                  tf.nn.softmax(logits[4])])
+
+            # to save model trained
+            saver = tf.train.Saver()
+
+        with tf.Session(graph=graph) as session:
+            saver.restore(session, "result/SVHN_MODEL.ckpt")
+            prediction = session.run(prediction)
+            test_accuracy = CNN._get_accuracy(prediction, test_label[:, 1:6])
+            print test_accuracy
+
     @staticmethod
     def _get_accuracy(predictions, labels):
         label_numbers = CNN._get_label_numbers(labels)
         prediction_numbers = CNN._get_prediction_numbers(predictions)
         correct = 0
         for i, label in enumerate(label_numbers):
+            print label, prediction_numbers[i]
             if label == prediction_numbers[i]:
                 # for debug
-                print label, prediction_numbers[i]
                 correct += 1
         return 100.0 * correct / len(label_numbers)
 

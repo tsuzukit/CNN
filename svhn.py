@@ -289,3 +289,10 @@ class SVHN:
 
         images = images.reshape((-1, images.shape[1], images.shape[2], 1))
         return images, labels
+
+    def get_reformatted_test_dataset(self):
+        labels = self.test_labels
+        images = self.test_dataset
+
+        images = images.reshape((-1, images.shape[1], images.shape[2], 1))
+        return images, labels

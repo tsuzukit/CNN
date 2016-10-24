@@ -1,17 +1,16 @@
-import mnist as mnist
 import svhn as svhn
-import model_mnist as model_mnist
 import model as model
 
 if __name__ == '__main__':
 
     svhn = svhn.SVHN()
     images, labels = svhn.get_reformatted_dataset()
-    cnnModel = model.CNN()
+    cnnModel = model.CNN(dropout=0.5)
+
+    # train model
     cnnModel.fit(images, labels)
 
-    # mnist_training = mnist.MNIST(mnist.MNIST.TYPE_TRAINING)
-    # images, labels = mnist_training.get_reformatted_dataset()
-    # cnnModel = model_mnist.CNN()
-    # cnnModel.fit(images, labels)
+    # test model
+    test_images, test_labels = svhn.get_reformatted_test_dataset()
+    cnnModel.predict(test_images, test_labels)
 
