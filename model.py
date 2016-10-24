@@ -106,7 +106,7 @@ class CNN:
             stats = []
 
             # training
-            for step in range(10):
+            for step in range(30000):
 
                 batch_data, batch_labels = self._get_batch(step, training_data, training_label)
                 feed_dict = {
@@ -129,13 +129,13 @@ class CNN:
 
             # save stats
             keys = stats[0].keys()
-            with open('result.csv', 'wb') as output_file:
+            with open('result/stats.csv', 'wb') as output_file:
                 dict_writer = csv.DictWriter(output_file, keys)
                 dict_writer.writeheader()
                 dict_writer.writerows(stats)
 
             # save model
-            saver.save(session, "SVHN_MODEL.ckpt")
+            saver.save(session, "result/SVHN_MODEL.ckpt")
 
     @staticmethod
     def _get_accuracy(predictions, labels):
