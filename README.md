@@ -1,29 +1,29 @@
 # Dependencies
 
-- [tensorflow](https://www.tensorflow.org/, tensorflow)
-- [numnpy](http://www.numpy.org/, numpy)
-- [h5py](https://pypi.python.org/pypi/h5py/, h5py)
-- [scipy](http://www.scipy.org/scipylib/index.html, scipy)
-- [matplotlib](http://matplotlib.org/, matplotlib)
-- [six](https://pypi.python.org/pypi/six/, six)
-- [pillow](https://pypi.python.org/pypi/Pillow/, pillow)
+- [tensorflow] (https://www.tensorflow.org/)
+- [numnpy] (http://www.numpy.org/)
+- [h5py] (https://pypi.python.org/pypi/h5py/)
+- [scipy] (http://www.scipy.org/scipylib/index.html)
+- [matplotlib] (http://matplotlib.org/)
+- [six] (https://pypi.python.org/pypi/six/)
+- [pillow] (https://pypi.python.org/pypi/Pillow/)
 
 # How to run
 
-1. clone repository
+### clone repository
 
 ```
 $ git clone git@github.com:tsuzukit/CNN.git
 ```
 
-2. train model
+### train model
 
 ```
 $ cd CNN
 $ python main.py
 ```
 
-3. predict
+### predict
 
 ```
 T.B.D
