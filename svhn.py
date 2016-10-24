@@ -227,3 +227,10 @@ class SVHN:
             plt.figure()
             plt.imshow(img)  # display it
             plt.show()
+
+    def get_reformatted_dataset(self):
+        labels = self.training_labels
+        images = self.training_dataset
+
+        images = images.reshape((-1, images.shape[1], images.shape[2], 1))
+        return images, labels
