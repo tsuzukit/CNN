@@ -1,11 +1,12 @@
 import tensorflow as tf
 import numpy as np
+import csv
 
 
 class CNN:
 
     IMAGE_SIZE = 32
-    TRAINING_VALIDATION_RATIO = 0.95
+    TRAINING_VALIDATION_RATIO = 0.99
 
     def __init__(self, learning_rage=0.05, batch_size=64, patch_size=5, depth=16, num_hidden=64, dropout=0.5, num_channels=1):
         self.learning_rate = learning_rage
@@ -93,23 +94,48 @@ class CNN:
                                              tf.nn.softmax(model(tf_valid_data_set)[3]),
                                              tf.nn.softmax(model(tf_valid_data_set)[4])])
 
+            # to save model trained
+            saver = tf.train.Saver()
+
         with tf.Session(graph=graph) as session:
             # initialize
             init = tf.initialize_all_variables()
             session.run(init)
 
+            # for statis
+            stats = []
+
             # training
-            for step in range(5000):
+            for step in range(10):
+
                 batch_data, batch_labels = self._get_batch(step, training_data, training_label)
                 feed_dict = {
                     tf_train_data_set: batch_data,
                     tf_train_labels: batch_labels
                 }
                 _, l, lg, predictions = session.run([optimizer, loss, logits, training_prediction], feed_dict=feed_dict)
+                training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 1:6])
+                validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 1:6])
                 print("Step: %d" % step)
                 print('Minibatch loss at step %d: %f' % (step, l))
-                print('Training accuracy: %.1f%%' % CNN._get_accuracy(predictions, batch_labels[:, 1:6]))
-                print('Validation accuracy: %.1f%%' % CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 1:6]))
+                print('Training accuracy: %.1f%%' % training_accuracy)
+                print('Validation accuracy: %.1f%%' % validation_accuracy)
+
+                # for stats
+                stats_data = {"step": step,
+                              "training_accuracy": training_accuracy,
+                              "validation_accuracy": validation_accuracy}
+                stats.append(stats_data)
+
+            # save stats
+            keys = stats[0].keys()
+            with open('result.csv', 'wb') as output_file:
+                dict_writer = csv.DictWriter(output_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(stats)
+
+            # save model
+            saver.save(session, "SVHN_MODEL.ckpt")
 
     @staticmethod
     def _get_accuracy(predictions, labels):
@@ -118,6 +144,8 @@ class CNN:
         correct = 0
         for i, label in enumerate(label_numbers):
             if label == prediction_numbers[i]:
+                # for debug
+                print label, prediction_numbers[i]
                 correct += 1
         return 100.0 * correct / len(label_numbers)
 

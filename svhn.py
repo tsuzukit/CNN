@@ -191,6 +191,7 @@ class SVHN:
         image_data = image_data[box['minTop']:box['maxTopHeight'], box['minLeft']:box['maxLeftWidth']]
         image_data = imresize(image_data, (SVHN.IMAGE_WIDTH, SVHN.IMAGE_HEIGHT))
         image_data = (image_data.astype(float) - SVHN.DEPTH / 2) / SVHN.DEPTH
+
         return image_data
 
     @staticmethod
@@ -207,15 +208,43 @@ class SVHN:
             chr_count = dataset['labels'][i][dataset['labels'][i] > -1].shape[0]
             top_heights = np.array([tops[i][:chr_count], heights[i][:chr_count]])
             left_widths = np.array([lefts[i][:chr_count], widths[i][:chr_count]])
+
+            top = SVHN.get_top(top_heights)
+            left = SVHN.get_left(left_widths)
+            if top == float("inf") or left == float("inf"):
+                continue
+
             image = SVHN.load_image(images[i], path, {
-                    "minTop": min(top_heights[0, :]),
-                    "minLeft": min(left_widths[1, :]),
-                    "maxTopHeight": top_heights.sum(axis=0).max(),
-                    "maxLeftWidth": left_widths.sum(axis=0).max()
+                    "minTop": int(top),
+                    "minLeft": int(left),
+                    "maxTopHeight": int(top_heights.sum(axis=0).max()),
+                    "maxLeftWidth": int(left_widths.sum(axis=0).max())
             })
             data[i, :, :] = image
 
         return data
+
+    @staticmethod
+    def get_top(top_heights):
+        result = float("inf")
+        top_heights = top_heights[0]
+        for top_height in top_heights:
+            if top_height == 0.0:
+                continue
+            if top_height < result:
+                result = top_height
+        return result
+
+    @staticmethod
+    def get_left(left_width):
+        result = float("inf")
+        left_heights = left_width[0]
+        for left_height in left_heights:
+            if left_height == 0.0:
+                continue
+            if left_height < result:
+                result = left_height
+        return result
 
     def show_as_image(self, num=10):
         images = self.training_dataset
@@ -227,6 +256,32 @@ class SVHN:
             plt.figure()
             plt.imshow(img)  # display it
             plt.show()
+
+    def get_histogram_data(self):
+        labels = self.training_labels
+
+        result = {}
+        label_numbers = SVHN._get_label_numbers(labels)
+        for i in range(len(label_numbers)):
+            order = str(len(label_numbers[i]))
+            if order in result.keys():
+                result[order] += 1
+            else:
+                result[order] = 1
+
+        print result
+
+    @staticmethod
+    def _get_label_numbers(labels):
+        result = []
+        for label in labels:
+            number_string = ""
+            for digit in label:
+                digit = str(int(digit))
+                if digit != "10":
+                    number_string += digit
+            result.append(number_string)
+        return result
 
     def get_reformatted_dataset(self):
         labels = self.training_labels
