@@ -5,9 +5,9 @@ if __name__ == '__main__':
 
     svhn = svhn.SVHN()
     images, labels = svhn.get_reformatted_dataset()
-    cnnModel = model.CNN(dropout=0.5)
+    cnnModel = model.CNN(dropout=0.8)
 
-    # train model
+    # # train model
     cnnModel.fit(images, labels)
 
     # test model

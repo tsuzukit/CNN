@@ -117,16 +117,18 @@ class CNN:
                 _, l, lg, predictions = session.run([optimizer, loss, logits, training_prediction], feed_dict=feed_dict)
                 training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 1:6])
                 validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 1:6])
+
                 print("Step: %d" % step)
                 print('Minibatch loss at step %d: %f' % (step, l))
                 print('Training accuracy: %.1f%%' % training_accuracy)
                 print('Validation accuracy: %.1f%%' % validation_accuracy)
 
-                # for stats
-                stats_data = {"step": step,
-                              "training_accuracy": training_accuracy,
-                              "validation_accuracy": validation_accuracy}
-                stats.append(stats_data)
+                if step % 100 == 0:
+                    # for stats
+                    stats_data = {"step": step,
+                                  "training_accuracy": training_accuracy,
+                                  "validation_accuracy": validation_accuracy}
+                    stats.append(stats_data)
 
             # save stats
             keys = stats[0].keys()
@@ -139,7 +141,6 @@ class CNN:
             saver.save(session, "result/SVHN_MODEL.ckpt")
 
     def predict(self, test_data, test_label):
-        test_data, test_label = self._get_batch(0, test_data, test_label)
         num_labels = 11
 
         graph = tf.Graph()
@@ -202,7 +203,7 @@ class CNN:
             saver.restore(session, "result/SVHN_MODEL.ckpt")
             prediction = session.run(prediction)
             test_accuracy = CNN._get_accuracy(prediction, test_label[:, 1:6])
-            print test_accuracy
+            print('Test accuracy: %.1f%%' % test_accuracy)
 
     @staticmethod
     def _get_accuracy(predictions, labels):
@@ -210,7 +211,6 @@ class CNN:
         prediction_numbers = CNN._get_prediction_numbers(predictions)
         correct = 0
         for i, label in enumerate(label_numbers):
-            print label, prediction_numbers[i]
             if label == prediction_numbers[i]:
                 # for debug
                 correct += 1
@@ -231,15 +231,7 @@ class CNN:
     @staticmethod
     def _get_prediction_numbers(predictions):
         labels = np.argmax(predictions, 2).T
-        result = []
-        for label in labels:
-            number_string = ""
-            for digit in label:
-                digit = str(int(digit))
-                if digit != "10":
-                    number_string += digit
-            result.append(number_string)
-        return result
+        return CNN._get_label_numbers(labels)
 
     @staticmethod
     def _split_data(data, ratio):
