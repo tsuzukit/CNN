@@ -39,14 +39,18 @@ class SVHN:
     @staticmethod
     def pickle_raw_data():
         if not SVHN.has_pickle('train'):
-            print ("train data is already pickled")
-            train_tuple = SVHN.load_data('resource/SVHN/train/digitStruct.mat')
-            SVHN.maybe_pickle(train_tuple, "train")
+            print ("start pickling training data")
+            data = SVHN.load_data('resource/SVHN/train/digitStruct.mat')
+            SVHN.maybe_pickle(data, "train")
+        else:
+            print ("training data is already pickled")
 
         if not SVHN.has_pickle('test'):
+            print ("start pickling test data")
+            data = SVHN.load_data('resource/SVHN/test/digitStruct.mat')
+            SVHN.maybe_pickle(data, "test")
+        else:
             print ("test data is already pickled")
-            test_tuple = SVHN.load_data('resource/SVHN/test/digitStruct.mat')
-            SVHN.maybe_pickle(test_tuple, "test")
 
     @staticmethod
     def pickle_all_data():
@@ -115,39 +119,44 @@ class SVHN:
     def load_data(path):
         meta = h5py.File(path)
 
-        images = np.ndarray(shape=(meta['digitStruct']['name'].shape[0], ), dtype='|S15')
-        labels = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
-        labels.fill(10)
-        tops = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
-        heights = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
-        widths = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
-        lefts = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
-        for i in xrange(meta['digitStruct']['name'].shape[0]):
-            images[i] = SVHN.get_label(meta, i)
-            l = SVHN.get_attr(meta, i, 'label')
-            t = SVHN.get_attr(meta, i, 'top')
-            h = SVHN.get_attr(meta, i, 'height')
-            w = SVHN.get_attr(meta, i, 'width')
-            le = SVHN.get_attr(meta, i, 'left')
+        digit_struct = meta['digitStruct']
+        data_length = digit_struct['name'].shape[0]
 
-            labels[i, :l.shape[0]] = l
-            tops[i, :t.shape[0]] = t
-            heights[i, :h.shape[0]] = h
-            widths[i, :w.shape[0]] = w
-            lefts[i, :le.shape[0]] = le
+        images = np.ndarray(shape=(data_length, ), dtype='|S18')
+        labels = np.zeros((data_length, 6), dtype=float)
+        labels.fill(0)
+        tops = np.zeros((data_length, 6), dtype=float)
+        heights = np.zeros((data_length, 6), dtype=float)
+        widths = np.zeros((data_length, 6), dtype=float)
+        lefts = np.zeros((data_length, 6), dtype=float)
+        for i in xrange(data_length):
+            images[i] = SVHN.get_label(meta, i)
+            label = SVHN.get_attr(meta, i, 'label')
+            top = SVHN.get_attr(meta, i, 'top')
+            height = SVHN.get_attr(meta, i, 'height')
+            width = SVHN.get_attr(meta, i, 'width')
+            left = SVHN.get_attr(meta, i, 'left')
+
+            labels[i, :label.shape[0]] = label
+            tops[i, :top.shape[0]] = top
+            heights[i, :height.shape[0]] = height
+            widths[i, :width.shape[0]] = width
+            lefts[i, :left.shape[0]] = left
 
         return labels, images, tops, heights, widths, lefts
 
     @staticmethod
-    def get_attr(c, i, attr):
-        d = c[c['digitStruct']['bbox'][i][0]][attr].value.squeeze()
+    def get_attr(meta, i, attr):
+        ref = meta['digitStruct']['bbox'][i][0]
+        d = meta[ref][attr].value.squeeze()
         if d.dtype == 'float64':
             return d.reshape(-1)
-        return np.array([c[x].value for x in d]).squeeze()
+        return np.array([meta[x].value for x in d]).squeeze()
 
     @staticmethod
-    def get_label(c, i):
-        d = c[c['digitStruct']['name'][i][0]].value.tostring()
+    def get_label(meta, i):
+        ref = meta['digitStruct']['name'][i][0]
+        d = meta[ref].value.tostring()
         return d.replace('\x00', '')
 
     @staticmethod
@@ -161,7 +170,7 @@ class SVHN:
         if os.path.exists(file_path + '.pickle') and not force:
             print('%s already present - Skipping pickling.' % struct)
         else:
-            print('Pickling %s.' % file_path + '.pickle')
+            print('Pickling %s' % file_path + '.pickle')
             dataset = {
                 'labels': data_tuple[0],
                 'images': data_tuple[1],
@@ -181,14 +190,9 @@ class SVHN:
     @staticmethod
     def load_image(image_file, path, box):
         image_data = np.average(ndimage.imread(path + image_file), axis=2)
-        if box['minTop'] <= 0:
-            box['minTop'] = 0
-        if box['minLeft'] <= 0:
-            box['minLeft'] = 0
-        image_data = image_data[box['minTop']:box['maxTopHeight'], box['minLeft']:box['maxLeftWidth']]
+        image_data = image_data[box['y']:box['height'], box['x']:box['width']]
         image_data = imresize(image_data, (SVHN.IMAGE_WIDTH, SVHN.IMAGE_HEIGHT))
         image_data = (image_data.astype(float) - SVHN.DEPTH / 2) / SVHN.DEPTH
-
         return image_data
 
     @staticmethod
@@ -199,27 +203,37 @@ class SVHN:
         heights = dataset['heights']
         lefts = dataset['lefts']
 
+        path = 'resource/SVHN/' + target_name + "/"
         data = np.ndarray(shape=(images.shape[0], SVHN.IMAGE_WIDTH, SVHN.IMAGE_HEIGHT), dtype=np.float32)
         for i in range(data.shape[0]):
-            path = 'resource/SVHN/' + target_name + "/"
-            chr_count = dataset['labels'][i][dataset['labels'][i] > -1].shape[0]
-            top_heights = np.array([tops[i][:chr_count], heights[i][:chr_count]])
-            left_widths = np.array([lefts[i][:chr_count], widths[i][:chr_count]])
-
-            top = SVHN.get_top(top_heights)
-            left = SVHN.get_left(left_widths)
-            if top == float("inf") or left == float("inf"):
+            count = dataset['labels'][i][dataset['labels'][i] > -1].shape[0]
+            box = SVHN.get_box_coordinates(count, tops, heights, lefts, widths, i)
+            if box is None:
                 continue
-
-            image = SVHN.load_image(images[i], path, {
-                    "minTop": int(top),
-                    "minLeft": int(left),
-                    "maxTopHeight": int(top_heights.sum(axis=0).max()),
-                    "maxLeftWidth": int(left_widths.sum(axis=0).max())
-            })
+            image = SVHN.load_image(images[i], path, box)
             data[i, :, :] = image
 
         return data
+
+    @staticmethod
+    def get_box_coordinates(count, tops, heights, lefts, widths, index):
+        top_heights = np.array([tops[index][:count], heights[index][:count]])
+        left_widths = np.array([lefts[index][:count], widths[index][:count]])
+
+        y = SVHN.get_top(top_heights)
+        x = SVHN.get_left(left_widths)
+        height = top_heights.sum(axis=0).max()
+        width = left_widths.sum(axis=0).max()
+
+        if y == float("inf") or x == float("inf"):
+            return None
+
+        return {
+            "y": int(y),
+            "x": int(x),
+            "height": int(height),
+            "width": int(width)
+        }
 
     @staticmethod
     def get_top(top_heights):
@@ -230,6 +244,8 @@ class SVHN:
                 continue
             if top_height < result:
                 result = top_height
+        if result <= 0:
+            result = 0
         return result
 
     @staticmethod
@@ -241,6 +257,8 @@ class SVHN:
                 continue
             if left_height < result:
                 result = left_height
+        if result <= 0:
+            result = 0
         return result
 
     def show_as_image(self, num=10):

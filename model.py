@@ -5,10 +5,21 @@ import csv
 
 class CNN:
 
+    # 0 to 9 plus undefined
+    NUM_LABELS = 11
+    NUM_DIGITS = 6
     IMAGE_SIZE = 32
     TRAINING_VALIDATION_RATIO = 0.99
 
-    def __init__(self, learning_rage=0.05, batch_size=64, patch_size=5, depth=16, num_hidden=64, dropout=0.5, num_channels=1):
+    def __init__(self,
+                 learning_rage=0.1,
+                 batch_size=32,
+                 patch_size=5,
+                 depth=16,
+                 num_hidden=64,
+                 dropout=0.5,
+                 num_channels=1,
+                 training_num=60000):
         self.learning_rate = learning_rage
         self.batch_size = batch_size
         self.patch_size = patch_size
@@ -16,12 +27,13 @@ class CNN:
         self.num_hidden = num_hidden
         self.dropout = dropout
         self.num_channels = num_channels
+        self.training_num = training_num
 
     def fit(self, training_data, training_label):
         training_data, validation_data = CNN._split_data(training_data, CNN.TRAINING_VALIDATION_RATIO)
         training_label, validation_label = CNN._split_data(training_label, CNN.TRAINING_VALIDATION_RATIO)
-        num_labels = 11
-        num_digits = 6
+        num_labels = CNN.NUM_LABELS
+        num_digits = CNN.NUM_DIGITS
 
         graph = tf.Graph()
         with graph.as_default():
@@ -71,16 +83,14 @@ class CNN:
 
             # Training computation
             logits = model(tf_train_data_set)
-            loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[0], tf_train_labels[:, 1])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[1], tf_train_labels[:, 2])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[2], tf_train_labels[:, 3])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[3], tf_train_labels[:, 4])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[4], tf_train_labels[:, 5]))
+            loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[0], tf_train_labels[:, 0])) +\
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[1], tf_train_labels[:, 1])) +\
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[2], tf_train_labels[:, 2])) +\
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[3], tf_train_labels[:, 3])) +\
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[4], tf_train_labels[:, 4]))
 
             # Optimizer
-            global_step = tf.Variable(0)
-            learning_rate = tf.train.exponential_decay(0.05, global_step, 10000, 0.95)
-            optimizer = tf.train.AdagradOptimizer(learning_rate).minimize(loss, global_step=global_step)
+            optimizer = tf.train.AdagradOptimizer(self.learning_rate).minimize(loss)
 
             # result
             training_prediction = tf.pack([tf.nn.softmax(logits[0]),
@@ -107,21 +117,22 @@ class CNN:
             stats = []
 
             # training
-            for step in range(60000):
+            for step in range(self.training_num):
 
                 batch_data, batch_labels = self._get_batch(step, training_data, training_label)
                 feed_dict = {
                     tf_train_data_set: batch_data,
                     tf_train_labels: batch_labels
                 }
-                _, l, lg, predictions = session.run([optimizer, loss, logits, training_prediction], feed_dict=feed_dict)
-                training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 1:6])
-                validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 1:6])
+                _, l, tf_l, lg, predictions = session.run([optimizer, loss, tf_train_labels, logits, training_prediction], feed_dict=feed_dict)
+                training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 0:5])
+                # validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 0:5])
+                validation_accuracy = 0
 
                 print("Step: %d" % step)
                 print('Minibatch loss at step %d: %f' % (step, l))
                 print('Training accuracy: %.1f%%' % training_accuracy)
-                print('Validation accuracy: %.1f%%' % validation_accuracy)
+                # print('Validation accuracy: %.1f%%' % validation_accuracy)
 
                 if step % 100 == 0:
                     # for stats
@@ -141,7 +152,7 @@ class CNN:
             saver.save(session, "result/SVHN_MODEL.ckpt")
 
     def predict(self, test_data, test_label):
-        num_labels = 11
+        num_labels = CNN.NUM_LABELS
 
         graph = tf.Graph()
         with graph.as_default():
@@ -202,7 +213,7 @@ class CNN:
         with tf.Session(graph=graph) as session:
             saver.restore(session, "result/SVHN_MODEL.ckpt")
             prediction = session.run(prediction)
-            test_accuracy = CNN._get_accuracy(prediction, test_label[:, 1:6])
+            test_accuracy = CNN._get_accuracy(prediction, test_label[:, 0:5])
             print('Test accuracy: %.1f%%' % test_accuracy)
 
     @staticmethod
@@ -213,6 +224,7 @@ class CNN:
         for i, label in enumerate(label_numbers):
             if label == prediction_numbers[i]:
                 # for debug
+                print label, prediction_numbers[i]
                 correct += 1
         return 100.0 * correct / len(label_numbers)
 
@@ -223,7 +235,9 @@ class CNN:
             number_string = ""
             for digit in label:
                 digit = str(int(digit))
-                if digit != "10":
+                if digit == "10":
+                    number_string += "0"
+                elif digit != "0":
                     number_string += digit
             result.append(number_string)
         return result
