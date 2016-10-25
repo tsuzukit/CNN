@@ -113,31 +113,28 @@ class SVHN:
 
     @staticmethod
     def load_data(path):
-        c = h5py.File(path)
+        meta = h5py.File(path)
 
-        images = a = np.ndarray(shape=(c['digitStruct']['name'].shape[0], ), dtype='|S15')
-        labels = np.zeros((len(c['digitStruct']['bbox']), 6), dtype=float)
+        images = np.ndarray(shape=(meta['digitStruct']['name'].shape[0], ), dtype='|S15')
+        labels = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
         labels.fill(10)
-        tops = np.zeros((len(c['digitStruct']['bbox']), 6), dtype=float)
-        heights = np.zeros((len(c['digitStruct']['bbox']), 6), dtype=float)
-        widths = np.zeros((len(c['digitStruct']['bbox']), 6), dtype=float)
-        lefts = np.zeros((len(c['digitStruct']['bbox']), 6), dtype=float)
-        for i in xrange(c['digitStruct']['name'].shape[0]):
-            images[i] = SVHN.get_label(c, i)
-            l = SVHN.get_attr(c, i, 'label')
-            t = SVHN.get_attr(c, i, 'top')
-            h = SVHN.get_attr(c, i, 'height')
-            w = SVHN.get_attr(c, i, 'width')
-            le = SVHN.get_attr(c, i, 'left')
+        tops = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
+        heights = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
+        widths = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
+        lefts = np.zeros((len(meta['digitStruct']['bbox']), 6), dtype=float)
+        for i in xrange(meta['digitStruct']['name'].shape[0]):
+            images[i] = SVHN.get_label(meta, i)
+            l = SVHN.get_attr(meta, i, 'label')
+            t = SVHN.get_attr(meta, i, 'top')
+            h = SVHN.get_attr(meta, i, 'height')
+            w = SVHN.get_attr(meta, i, 'width')
+            le = SVHN.get_attr(meta, i, 'left')
 
             labels[i, :l.shape[0]] = l
             tops[i, :t.shape[0]] = t
             heights[i, :h.shape[0]] = h
             widths[i, :w.shape[0]] = w
             lefts[i, :le.shape[0]] = le
-
-            if (i % 5000 == 0):
-                print(i, "elapsed")
 
         return labels, images, tops, heights, widths, lefts
 
