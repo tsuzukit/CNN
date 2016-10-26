@@ -6,3 +6,4 @@ checkpoint
 SVHN_MODEL.ckpt
 SVHN_MODEL.ckpt.meta
 *.csv
+.ipynb_checkpoints/
