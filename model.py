@@ -10,14 +10,18 @@ class CNN:
     NUM_DIGITS = 6
     IMAGE_SIZE = 32
     TRAINING_VALIDATION_RATIO = 0.99
+    TRAINING_MODE = 0
+    TRAINING_VALIDATION_MODE = 1
+    TEST_MODE = 2
+    PREDICTION_MODE = 3
 
     def __init__(self,
                  learning_rage=0.1,
                  batch_size=32,
-                 patch_size=5,
-                 depth=16,
+                 patch_size=8,
+                 depth=8,
                  num_hidden=64,
-                 dropout=0.5,
+                 dropout=0.8,
                  num_channels=1,
                  training_num=60000):
         self.learning_rate = learning_rage
@@ -32,6 +36,27 @@ class CNN:
     def fit(self, training_data, training_label):
         training_data, validation_data = CNN._split_data(training_data, CNN.TRAINING_VALIDATION_RATIO)
         training_label, validation_label = CNN._split_data(training_label, CNN.TRAINING_VALIDATION_RATIO)
+        self._setup_and_run_graph(training_data=training_data,
+                                  training_label=training_label,
+                                  validation_data=validation_data,
+                                  validation_label=validation_label,
+                                  mode=CNN.TRAINING_VALIDATION_MODE)
+
+    def test(self, test_data, test_label):
+        self._setup_and_run_graph(training_data=None,
+                                  training_label=None,
+                                  validation_data=test_data,
+                                  validation_label=test_label,
+                                  mode=CNN.TEST_MODE)
+
+    def predict(self, test_data):
+        self._setup_and_run_graph(training_data=None,
+                                  training_label=None,
+                                  validation_data=test_data,
+                                  validation_label=None,
+                                  mode=CNN.PREDICTION_MODE)
+
+    def _setup_and_run_graph(self, training_data, training_label, validation_data, validation_label, mode):
         num_labels = CNN.NUM_LABELS
         num_digits = CNN.NUM_DIGITS
 
@@ -45,10 +70,17 @@ class CNN:
             # variables
             layer1_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.num_channels, self.depth], stddev=0.1))
             layer1_biases = tf.Variable(tf.zeros([self.depth]))
-            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.depth, self.depth * 2], stddev=0.1))
+            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size / 2, self.patch_size / 2, self.depth, self.depth * 2], stddev=0.1))
             layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 2]))
-            layer3_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 4 * CNN.IMAGE_SIZE // 4 * self.depth * 2, self.num_hidden], stddev=0.1))
-            layer3_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden]))
+            layer3_weights = tf.Variable(tf.truncated_normal([self.patch_size / 4, self.patch_size / 4, self.depth * 2, self.depth * 4], stddev=0.1))
+            layer3_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 4]))
+            layer4_weights = tf.Variable(tf.truncated_normal([self.patch_size // 8, self.patch_size // 8, self.depth * 4, self.depth * 8], stddev=0.1))
+            layer4_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 8]))
+
+            full_layer1_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 16 * CNN.IMAGE_SIZE // 16 * self.depth * 8, self.num_hidden * 2], stddev=0.1))
+            full_layer1_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden * 2]))
+            full_layer2_weights = tf.Variable(tf.truncated_normal([self.num_hidden * 2, self.num_hidden], stddev=0.1))
+            full_layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden]))
 
             s1_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
             s1_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
@@ -64,14 +96,30 @@ class CNN:
             # Model
             def model(data):
                 conv = tf.nn.conv2d(data, layer1_weights, [1, 1, 1, 1], padding='SAME')
-                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                hidden = tf.nn.relu(pool + layer1_biases)
-                conv = tf.nn.conv2d(hidden, layer2_weights, [1, 1, 1, 1], padding='SAME')
-                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                hidden = tf.nn.relu(pool + layer2_biases)
-                shape = hidden.get_shape().as_list()
-                reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
-                hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
+                hidden = tf.nn.relu(conv + layer1_biases)
+                pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+
+                conv = tf.nn.conv2d(norm, layer2_weights, [1, 1, 1, 1], padding='SAME')
+                hidden = tf.nn.relu(conv + layer2_biases)
+                pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+
+                conv = tf.nn.conv2d(norm, layer3_weights, [1, 1, 1, 1], padding='SAME')
+                hidden = tf.nn.relu(conv + layer3_biases)
+                pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+
+                conv = tf.nn.conv2d(norm, layer4_weights, [1, 1, 1, 1], padding='SAME')
+                hidden = tf.nn.relu(conv + layer4_biases)
+                pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
+                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+
+                shape = norm.get_shape().as_list()
+                reshape = tf.reshape(norm, [shape[0], shape[1] * shape[2] * shape[3]])
+                hidden = tf.nn.relu(tf.matmul(reshape, full_layer1_weights) + full_layer1_biases)
+                hidden = tf.nn.relu(tf.matmul(hidden, full_layer2_weights) + full_layer2_biases)
+
                 dropout = tf.nn.dropout(hidden, self.dropout)
 
                 logits1 = tf.matmul(dropout, s1_weights) + s1_biases
@@ -83,8 +131,8 @@ class CNN:
 
             # Training computation
             logits = model(tf_train_data_set)
-            loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[0], tf_train_labels[:, 0])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[1], tf_train_labels[:, 1])) +\
+            loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[0], tf_train_labels[:, 0])) + \
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[1], tf_train_labels[:, 1])) + \
                    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[2], tf_train_labels[:, 2])) +\
                    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[3], tf_train_labels[:, 3])) +\
                    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[4], tf_train_labels[:, 4]))
@@ -109,6 +157,22 @@ class CNN:
             saver = tf.train.Saver()
 
         with tf.Session(graph=graph) as session:
+            if mode == CNN.PREDICTION_MODE:
+                saver.restore(session, "result/SVHN_MODEL.ckpt")
+                predictions = session.run(validation_prediction)
+                prediction_numbers = CNN._get_prediction_numbers(predictions)
+                print prediction_numbers
+                return
+
+            if mode == CNN.TEST_MODE:
+                saver.restore(session, "result/SVHN_MODEL.ckpt")
+                predictions = session.run(validation_prediction)
+                accuracy = CNN._get_accuracy(predictions, validation_label[:, 0:5])
+                print('Accuracy: %.1f%%' % accuracy)
+                return
+
+            # for training
+
             # initialize
             init = tf.initialize_all_variables()
             session.run(init)
@@ -125,16 +189,19 @@ class CNN:
                     tf_train_labels: batch_labels
                 }
                 _, l, tf_l, lg, predictions = session.run([optimizer, loss, tf_train_labels, logits, training_prediction], feed_dict=feed_dict)
-                training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 0:5])
-                # validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 0:5])
-                validation_accuracy = 0
-
-                print("Step: %d" % step)
-                print('Minibatch loss at step %d: %f' % (step, l))
-                print('Training accuracy: %.1f%%' % training_accuracy)
-                # print('Validation accuracy: %.1f%%' % validation_accuracy)
 
                 if step % 100 == 0:
+                    training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 0:5])
+                    print("Step: %d" % step)
+                    print('Minibatch loss at step %d: %f' % (step, l))
+                    print('Training accuracy: %.1f%%' % training_accuracy)
+
+                    if mode == CNN.TRAINING_VALIDATION_MODE:
+                        validation_accuracy = CNN._get_accuracy(validation_prediction.eval(), validation_label[:, 0:5])
+                        print('Validation accuracy: %.1f%%' % validation_accuracy)
+                    else:
+                        validation_accuracy = 0
+
                     # for stats
                     stats_data = {"step": step,
                                   "training_accuracy": training_accuracy,
@@ -151,71 +218,6 @@ class CNN:
             # save model
             saver.save(session, "result/SVHN_MODEL.ckpt")
 
-    def predict(self, test_data, test_label):
-        num_labels = CNN.NUM_LABELS
-
-        graph = tf.Graph()
-        with graph.as_default():
-            # data
-            tf_test_data_set = tf.constant(test_data)
-
-            # variables
-            layer1_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.num_channels, self.depth], stddev=0.1))
-            layer1_biases = tf.Variable(tf.zeros([self.depth]))
-            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.depth, self.depth * 2], stddev=0.1))
-            layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 2]))
-            layer3_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 4 * CNN.IMAGE_SIZE // 4 * self.depth * 2, self.num_hidden], stddev=0.1))
-            layer3_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden]))
-
-            s1_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
-            s1_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-            s2_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
-            s2_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-            s3_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
-            s3_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-            s4_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
-            s4_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-            s5_weights = tf.Variable(tf.truncated_normal([self.num_hidden, num_labels], stddev=0.1))
-            s5_biases = tf.Variable(tf.constant(1.0, shape=[num_labels]))
-
-            # Model
-            def model(data):
-                conv = tf.nn.conv2d(data, layer1_weights, [1, 1, 1, 1], padding='SAME')
-                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                hidden = tf.nn.relu(pool + layer1_biases)
-                conv = tf.nn.conv2d(hidden, layer2_weights, [1, 1, 1, 1], padding='SAME')
-                pool = tf.nn.max_pool(conv, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                hidden = tf.nn.relu(pool + layer2_biases)
-                shape = hidden.get_shape().as_list()
-                reshape = tf.reshape(hidden, [shape[0], shape[1] * shape[2] * shape[3]])
-                hidden = tf.nn.relu(tf.matmul(reshape, layer3_weights) + layer3_biases)
-
-                logits1 = tf.matmul(hidden, s1_weights) + s1_biases
-                logits2 = tf.matmul(hidden, s2_weights) + s2_biases
-                logits3 = tf.matmul(hidden, s3_weights) + s3_biases
-                logits4 = tf.matmul(hidden, s4_weights) + s4_biases
-                logits5 = tf.matmul(hidden, s5_weights) + s5_biases
-                return [logits1, logits2, logits3, logits4, logits5]
-
-            # Training computation
-            logits = model(tf_test_data_set)
-
-            # result
-            prediction = tf.pack([tf.nn.softmax(logits[0]),
-                                  tf.nn.softmax(logits[1]),
-                                  tf.nn.softmax(logits[2]),
-                                  tf.nn.softmax(logits[3]),
-                                  tf.nn.softmax(logits[4])])
-
-            # to save model trained
-            saver = tf.train.Saver()
-
-        with tf.Session(graph=graph) as session:
-            saver.restore(session, "result/SVHN_MODEL.ckpt")
-            prediction = session.run(prediction)
-            test_accuracy = CNN._get_accuracy(prediction, test_label[:, 0:5])
-            print('Test accuracy: %.1f%%' % test_accuracy)
-
     @staticmethod
     def _get_accuracy(predictions, labels):
         label_numbers = CNN._get_label_numbers(labels)
@@ -223,8 +225,6 @@ class CNN:
         correct = 0
         for i, label in enumerate(label_numbers):
             if label == prediction_numbers[i]:
-                # for debug
-                print label, prediction_numbers[i]
                 correct += 1
         return 100.0 * correct / len(label_numbers)
 
