@@ -34,8 +34,9 @@ class SVHN:
         images = self.training_dataset
         labels = self.training_labels
 
+        label_numbers = SVHN._get_label_numbers(labels)
         for index in range(num):
-            print labels[index]
+            print label_numbers[index]
             img = images[index, :, :]
             plt.figure()
             plt.imshow(img)  # display it
@@ -44,16 +45,24 @@ class SVHN:
     def get_histogram_data(self):
         labels = self.training_labels
 
-        result = {}
+        result = []
         label_numbers = SVHN._get_label_numbers(labels)
         for i in range(len(label_numbers)):
-            order = str(len(label_numbers[i]))
-            if order in result.keys():
-                result[order] += 1
-            else:
-                result[order] = 1
+            order = len(label_numbers[i])
+            result.append(order)
 
-        print result
+        return result
+
+    def get_test_histogram_data(self):
+        labels = self.test_labels
+
+        result = []
+        label_numbers = SVHN._get_label_numbers(labels)
+        for i in range(len(label_numbers)):
+            order = len(label_numbers[i])
+            result.append(order)
+
+        return result
 
     def get_reformatted_dataset(self):
         labels = self.training_labels
@@ -115,6 +124,7 @@ class SVHN:
                 'train': {'data': training_data, 'label': training_label},
                 'test': {'data': testing_data, 'label': testing_label},
             }, f, pickle.HIGHEST_PROTOCOL)
+            print ("all pickle is created")
 
     def _on_download_progress(self, count, block_size, total_size):
         percent = int(count * block_size * 100 / total_size)
@@ -308,7 +318,9 @@ class SVHN:
             number_string = ""
             for digit in label:
                 digit = str(int(digit))
-                if digit != "10":
+                if digit == "10":
+                    number_string += "0"
+                elif digit != "0":
                     number_string += digit
             result.append(number_string)
         return result

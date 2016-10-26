@@ -22,7 +22,7 @@ class CNN:
                  num_hidden=128,
                  dropout=0.8,
                  num_channels=1,
-                 training_num=120000):
+                 training_num=60000):
         self.learning_rate = learning_rage
         self.batch_size = batch_size
         self.patch_size = patch_size
@@ -48,11 +48,11 @@ class CNN:
                                   mode=CNN.TEST_MODE)
 
     def predict(self, test_data):
-        self._setup_and_run_graph(training_data=None,
-                                  training_label=None,
-                                  validation_data=test_data,
-                                  validation_label=None,
-                                  mode=CNN.PREDICTION_MODE)
+        return self._setup_and_run_graph(training_data=None,
+                                         training_label=None,
+                                         validation_data=test_data,
+                                         validation_label=None,
+                                         mode=CNN.PREDICTION_MODE)
 
     def _setup_and_run_graph(self, training_data, training_label, validation_data, validation_label, mode):
         num_labels = CNN.NUM_LABELS
@@ -178,8 +178,7 @@ class CNN:
                 saver.restore(session, "result/SVHN_MODEL.ckpt")
                 predictions = session.run(validation_prediction)
                 prediction_numbers = CNN._get_prediction_numbers(predictions)
-                print prediction_numbers
-                return
+                return prediction_numbers
 
             if mode == CNN.TEST_MODE:
                 saver.restore(session, "result/SVHN_MODEL.ckpt")
@@ -207,7 +206,7 @@ class CNN:
                 }
                 _, l, tf_l, lg, predictions = session.run([optimizer, loss, tf_train_labels, logits, training_prediction], feed_dict=feed_dict)
 
-                if step % 100 == 0:
+                if step % 500 == 0:
                     training_accuracy = CNN._get_accuracy(predictions, batch_labels[:, 0:5])
                     print("Step: %d" % step)
                     print('Minibatch loss at step %d: %f' % (step, l))
