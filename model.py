@@ -19,15 +19,13 @@ class CNN:
                  learning_rage=0.1,
                  batch_size=32,
                  patch_size=8,
-                 depth=8,
-                 num_hidden=64,
+                 num_hidden=128,
                  dropout=0.8,
                  num_channels=1,
-                 training_num=60000):
+                 training_num=120000):
         self.learning_rate = learning_rage
         self.batch_size = batch_size
         self.patch_size = patch_size
-        self.depth = depth
         self.num_hidden = num_hidden
         self.dropout = dropout
         self.num_channels = num_channels
@@ -68,16 +66,16 @@ class CNN:
             tf_valid_data_set = tf.constant(validation_data)
 
             # variables
-            layer1_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.num_channels, self.depth], stddev=0.1))
-            layer1_biases = tf.Variable(tf.zeros([self.depth]))
-            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size / 2, self.patch_size / 2, self.depth, self.depth * 2], stddev=0.1))
-            layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 2]))
-            layer3_weights = tf.Variable(tf.truncated_normal([self.patch_size / 4, self.patch_size / 4, self.depth * 2, self.depth * 4], stddev=0.1))
-            layer3_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 4]))
-            layer4_weights = tf.Variable(tf.truncated_normal([self.patch_size // 8, self.patch_size // 8, self.depth * 4, self.depth * 8], stddev=0.1))
-            layer4_biases = tf.Variable(tf.constant(1.0, shape=[self.depth * 8]))
+            layer1_weights = tf.Variable(tf.truncated_normal([self.patch_size, self.patch_size, self.num_channels, 5], stddev=0.1))
+            layer1_biases = tf.Variable(tf.zeros([5]))
+            layer2_weights = tf.Variable(tf.truncated_normal([self.patch_size / 2, self.patch_size / 2, 5, 55], stddev=0.1))
+            layer2_biases = tf.Variable(tf.constant(1.0, shape=[55]))
+            layer3_weights = tf.Variable(tf.truncated_normal([self.patch_size / 4, self.patch_size / 4, 55, 110], stddev=0.1))
+            layer3_biases = tf.Variable(tf.constant(1.0, shape=[110]))
+            layer4_weights = tf.Variable(tf.truncated_normal([self.patch_size // 8, self.patch_size // 8, 110, 220], stddev=0.1))
+            layer4_biases = tf.Variable(tf.constant(1.0, shape=[220]))
 
-            full_layer1_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 16 * CNN.IMAGE_SIZE // 16 * self.depth * 8, self.num_hidden * 2], stddev=0.1))
+            full_layer1_weights = tf.Variable(tf.truncated_normal([CNN.IMAGE_SIZE // 16 * CNN.IMAGE_SIZE // 16 * 220, self.num_hidden * 2], stddev=0.1))
             full_layer1_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden * 2]))
             full_layer2_weights = tf.Variable(tf.truncated_normal([self.num_hidden * 2, self.num_hidden], stddev=0.1))
             full_layer2_biases = tf.Variable(tf.constant(1.0, shape=[self.num_hidden]))
@@ -98,22 +96,26 @@ class CNN:
                 conv = tf.nn.conv2d(data, layer1_weights, [1, 1, 1, 1], padding='SAME')
                 hidden = tf.nn.relu(conv + layer1_biases)
                 pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+                dropout = tf.nn.dropout(pool, self.dropout)
+                norm = tf.nn.lrn(dropout, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
 
                 conv = tf.nn.conv2d(norm, layer2_weights, [1, 1, 1, 1], padding='SAME')
                 hidden = tf.nn.relu(conv + layer2_biases)
                 pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+                dropout = tf.nn.dropout(pool, self.dropout)
+                norm = tf.nn.lrn(dropout, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
 
                 conv = tf.nn.conv2d(norm, layer3_weights, [1, 1, 1, 1], padding='SAME')
                 hidden = tf.nn.relu(conv + layer3_biases)
                 pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+                dropout = tf.nn.dropout(pool, self.dropout)
+                norm = tf.nn.lrn(dropout, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
 
                 conv = tf.nn.conv2d(norm, layer4_weights, [1, 1, 1, 1], padding='SAME')
                 hidden = tf.nn.relu(conv + layer4_biases)
                 pool = tf.nn.max_pool(hidden, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-                norm = tf.nn.lrn(pool, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
+                dropout = tf.nn.dropout(pool, self.dropout)
+                norm = tf.nn.lrn(dropout, 4, bias=1.0,   alpha=0.001 / 9.0, beta=0.75)
 
                 shape = norm.get_shape().as_list()
                 reshape = tf.reshape(norm, [shape[0], shape[1] * shape[2] * shape[3]])
@@ -129,13 +131,28 @@ class CNN:
                 logits5 = tf.matmul(dropout, s5_weights) + s5_biases
                 return [logits1, logits2, logits3, logits4, logits5]
 
-            # Training computation
+            # Regularization constants
+            C = 5e-4
+            R = tf.nn.l2_loss(layer1_weights)+tf.nn.l2_loss(layer1_biases) + \
+                tf.nn.l2_loss(layer2_weights)+tf.nn.l2_loss(layer2_biases) + \
+                tf.nn.l2_loss(layer3_weights)+tf.nn.l2_loss(layer3_biases) + \
+                tf.nn.l2_loss(layer4_weights)+tf.nn.l2_loss(layer4_biases) + \
+                tf.nn.l2_loss(full_layer1_weights)+tf.nn.l2_loss(full_layer1_biases) + \
+                tf.nn.l2_loss(full_layer2_weights)+tf.nn.l2_loss(full_layer2_biases) + \
+                tf.nn.l2_loss(s1_weights)+tf.nn.l2_loss(s1_biases) + \
+                tf.nn.l2_loss(s2_weights)+tf.nn.l2_loss(s2_biases) + \
+                tf.nn.l2_loss(s3_weights)+tf.nn.l2_loss(s3_biases) + \
+                tf.nn.l2_loss(s4_weights)+tf.nn.l2_loss(s4_biases) + \
+                tf.nn.l2_loss(s5_weights)+tf.nn.l2_loss(s5_biases)
+
+                # Training computation
             logits = model(tf_train_data_set)
             loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[0], tf_train_labels[:, 0])) + \
                    tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[1], tf_train_labels[:, 1])) + \
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[2], tf_train_labels[:, 2])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[3], tf_train_labels[:, 3])) +\
-                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[4], tf_train_labels[:, 4]))
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[2], tf_train_labels[:, 2])) + \
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[3], tf_train_labels[:, 3])) + \
+                   tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits[4], tf_train_labels[:, 4])) + \
+                   C * R
 
             # Optimizer
             optimizer = tf.train.AdagradOptimizer(self.learning_rate).minimize(loss)
