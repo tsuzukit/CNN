@@ -16,10 +16,10 @@
 $ git clone git@github.com:tsuzukit/CNN.git
 ```
 
-### train and model
+### open ipythone notebook
 
 ```
 $ cd CNN
-$ python main.py
+$ ipython notebook multi_digit_recognition.ipynb
 ```
 
