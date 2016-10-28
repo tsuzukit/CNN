@@ -10,8 +10,8 @@ if __name__ == '__main__':
     # create model instance
     cnnModel = model.CNN()
 
-    # train model
-    cnnModel.fit(images, labels)
+    # # # train model
+    # cnnModel.fit(images, labels)
 
     # test model
     test_images, test_labels = svhn.get_reformatted_test_dataset()

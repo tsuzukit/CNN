@@ -12,12 +12,23 @@ import matplotlib.pyplot as plt
 
 
 class SVHN:
+    """
+    SVHN class
+    It prepare training and test data. When no data is available locally, it will get data from internet
+    Provide some functions to analyze and visualize data
+    """
 
     DEPTH = 255.0
     IMAGE_WIDTH = 32
     IMAGE_HEIGHT = 32
 
     def __init__(self):
+        """
+        constructor
+        When instance is made, it will automatically prepare training and test data
+        When downloading data is necessary, it needs a while to prepare
+        """
+
         self.last_download_percent = 0
         self._download_and_extract()
         SVHN._pickle_raw_data()
@@ -31,6 +42,11 @@ class SVHN:
             self.test_labels = dataset['test']['label']
 
     def show_as_image(self, num=10):
+        """
+        :parameter num number of images to be shown
+        Show images of the preprocessed data
+        """
+
         images = self.training_dataset
         labels = self.training_labels
 
@@ -43,6 +59,10 @@ class SVHN:
             plt.show()
 
     def get_histogram_data(self):
+        """
+        Get length of training labels in list
+        """
+
         labels = self.training_labels
 
         result = []
@@ -54,6 +74,10 @@ class SVHN:
         return result
 
     def get_test_histogram_data(self):
+        """
+        Get length of test labels in list
+        """
+
         labels = self.test_labels
 
         result = []
@@ -64,7 +88,35 @@ class SVHN:
 
         return result
 
+    def get_label_types(self):
+        """
+        get number of type of training labels
+        :return: sorted unique labels
+        """
+
+        labels = self.training_labels
+        label_numbers = SVHN._get_label_numbers(labels)
+        unique = list(set(label_numbers))
+        sorted_list = sorted(unique)
+        return sorted_list
+
+    def get_test_label_types(self):
+        """
+        get number of type of training labels
+        :return: sorted unique labels
+        """
+
+        labels = self.test_labels
+        label_numbers = SVHN._get_label_numbers(labels)
+        unique = list(set(label_numbers))
+        sorted_list = sorted(unique)
+        return sorted_list
+
     def get_reformatted_dataset(self):
+        """
+        Get training data in the format that can be fed to CNN class directly
+        """
+
         labels = self.training_labels
         images = self.training_dataset
 
@@ -72,6 +124,10 @@ class SVHN:
         return images, labels
 
     def get_reformatted_test_dataset(self):
+        """
+        Get test data in the format that can be fed to CNN class directly
+        """
+
         labels = self.test_labels
         images = self.test_dataset
 
@@ -79,6 +135,10 @@ class SVHN:
         return images, labels
 
     def _download_and_extract(self):
+        """
+        download and extract dataset from internet if there is no data available locally
+        """
+
         self._maybe_download('train.tar.gz', 404141560)
         self._maybe_download('test.tar.gz', 276555967)
         SVHN._maybe_extract("train.tar.gz")
@@ -239,6 +299,13 @@ class SVHN:
 
     @staticmethod
     def _load_image(image_file, path, box):
+        '''
+        :param image_file: image file name
+        :param path: path to image folder
+        :param box: coordinates where numbers is at inside of the picture
+        :return: pre-processed image data
+        '''
+
         image_data = np.average(ndimage.imread(path + image_file), axis=2)
         image_data = image_data[box['y']:box['height'], box['x']:box['width']]
         image_data = imresize(image_data, (SVHN.IMAGE_WIDTH, SVHN.IMAGE_HEIGHT))
