@@ -292,29 +292,9 @@ class CNN:
         label_numbers = CNN._get_label_numbers(labels)
         prediction_numbers = CNN._get_prediction_numbers(predictions)
         correct = 0
-        correct_1 = 0
-        correct_2 = 0
-        correct_3 = 0
-        correct_4 = 0
-        correct_5 = 0
-        correct_6 = 0
         for i, label in enumerate(label_numbers):
             if label == prediction_numbers[i]:
                 correct += 1
-                if len(label) == 1:
-                    correct_1 += 1
-                if len(label) == 2:
-                    correct_2 += 1
-                if len(label) == 3:
-                    correct_3 += 1
-                if len(label) == 4:
-                    correct_4 += 1
-                if len(label) == 5:
-                    correct_5 += 1
-                if len(label) == 6:
-                    correct_6 += 1
-
-        print correct_1, correct_2, correct_3, correct_4, correct_5, correct_6
 
         return 100.0 * correct / len(label_numbers)
 
